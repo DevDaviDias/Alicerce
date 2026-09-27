@@ -2,6 +2,8 @@
 
 import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
+import { BottomNav } from "./BottomNav";
+import { MobileHeader } from "./MobileHeader";
 import { useProtectedRoute } from "@/context/useProtectedRoute";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -18,9 +20,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (!usuario) return null; // useProtectedRoute já está redirecionando
 
   return (
-    <div className="flex">
+    <div className="md:flex">
       <Sidebar />
-      <div className="flex-1 px-10 py-8 max-w-4xl">{children}</div>
+      <MobileHeader />
+      <div className="flex-1 px-5 py-6 pb-24 md:px-12 md:py-10 md:pb-10 max-w-5xl">
+        {children}
+      </div>
+      <BottomNav />
     </div>
   );
 }

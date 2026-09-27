@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { Trash2, Wallet } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
-import { Card, PageHeader } from "@/components/ui/Card";
+import { Card, PageHeader, SectionTitle } from "@/components/ui/Card";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useColecao } from "@/lib/useColecao";
 import { criarDocumento, removerDocumento } from "@/lib/firestoreService";
 import { Transacao } from "@/types";
@@ -14,10 +17,26 @@ export default function FinancasPage() {
   const [tipo, setTipo] = useState<Transacao["tipo"]>("despesa");
   const [categoria, setCategoria] = useState("Geral");
 
-  const saldo = transacoes.reduce(
-    (soma, t) => soma + (t.tipo === "receita" ? t.valor : -t.valor),
-    0
-  );
+  const receitas = transacoes
+    .filter((t) => t.tipo === "receita")
+    .reduce((s, t) => s + t.valor, 0);
+  const despesas = transacoes
+    .filter((t) => t.tipo === "despesa")
+    .reduce((s, t) => s + t.valor, 0);
+  const saldo = receitas - despesas;
+
+  const categorias = Array.from(
+    new Set(transacoes.filter((t) => t.tipo === "despesa").map((t) => t.categoria))
+  )
+    .map((cat) => ({
+      nome: cat,
+      total: transacoes
+        .filter((t) => t.tipo === "despesa" && t.categoria === cat)
+        .reduce((s, t) => s + t.valor, 0),
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const maiorCategoria = Math.max(1, ...categorias.map((c) => c.total));
 
   async function handleAdicionar(e: FormEvent) {
     e.preventDefault();
@@ -43,18 +62,32 @@ export default function FinancasPage() {
         descricao="Lance receitas e despesas para acompanhar o saldo."
       />
 
-      <Card className="mb-8">
-        <p className="text-xs text-muted mb-1">Saldo total</p>
-        <p
-          className={`font-display text-3xl ${
-            saldo >= 0 ? "text-moss-light" : "text-red-400"
-          }`}
-        >
-          {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-        </p>
-      </Card>
+      <div className="grid grid-cols-3 gap-4 mb-10">
+        <Card>
+          <p className="text-xs text-muted mb-2">Receitas</p>
+          <p className="font-display text-xl text-moss-light">
+            {receitas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-xs text-muted mb-2">Despesas</p>
+          <p className="font-display text-xl text-red-400">
+            {despesas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-xs text-muted mb-2">Saldo</p>
+          <p
+            className={`font-display text-xl ${
+              saldo >= 0 ? "text-moss-light" : "text-red-400"
+            }`}
+          >
+            {saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          </p>
+        </Card>
+      </div>
 
-      <Card className="mb-8">
+      <Card className="mb-10">
         <form onSubmit={handleAdicionar} className="flex flex-wrap gap-3">
           <input
             value={descricao}
@@ -93,9 +126,38 @@ export default function FinancasPage() {
         </form>
       </Card>
 
+      {categorias.length > 0 && (
+        <>
+          <SectionTitle>Despesas por categoria</SectionTitle>
+          <Card className="mb-10">
+            <div className="flex flex-col gap-4">
+              {categorias.map((c) => (
+                <div key={c.nome}>
+                  <div className="flex items-center justify-between mb-1.5 text-sm">
+                    <span>{c.nome}</span>
+                    <span className="text-muted text-xs">
+                      {c.total.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                  <ProgressBar valor={c.total} max={maiorCategoria} cor="bronze" />
+                </div>
+              ))}
+            </div>
+          </Card>
+        </>
+      )}
+
+      <SectionTitle>Lançamentos</SectionTitle>
       <div className="flex flex-col gap-3">
         {transacoes.length === 0 && (
-          <p className="text-sm text-muted">Nenhum lançamento ainda.</p>
+          <EmptyState
+            icone={Wallet}
+            titulo="Nenhum lançamento ainda"
+            descricao="Registre sua primeira receita ou despesa acima."
+          />
         )}
         {transacoes.map((t) => (
           <Card key={t.id} className="flex items-center justify-between">
@@ -117,9 +179,9 @@ export default function FinancasPage() {
               </span>
               <button
                 onClick={() => uid && removerDocumento(uid, "transacoes", t.id)}
-                className="text-xs text-muted hover:text-ink transition-colors"
+                className="text-muted hover:text-ink transition-colors"
               >
-                Remover
+                <Trash2 size={15} />
               </button>
             </div>
           </Card>
